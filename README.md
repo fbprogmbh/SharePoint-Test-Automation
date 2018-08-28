@@ -1,2 +1,68 @@
-# SharePoint-Test-Automation-Package
-PowerShell module and additional script for automated testing of SharePoint installations
+# SharePoint Test Automation Package v1
+
+## Overview ##
+The SharePoint Test Automation Package gives you the ability to get an overview about the availability and security status of your SharePoint Single-Server. 
+
+
+## Getting started ##
+
+### Requirements ###
+* Some scripts need the PowerShell Active Directory Cmdlets. Add the RSAT AD Tools with the Server Manager or run the PowerShell Cmdlet 
+
+```powershell 
+add-windowsfeature RSAT-AD-PowerShell
+```
+
+* Download or clone the package
+* Adjust your execution policy to at least remoteSigned (the scripts are not digitally signed yet)
+
+```powershell
+	Set-ExecutionPolicy RemoteSigned -scope CurrentUser
+```
+
+* Copy/put the following folders in a PowerShell default load path to get the modules and automatically loaded.  
+
+  * SharePointExtensionModule
+
+A default load path could be e.g. the path in your user profile under *"userprofile"\Documents\WindowsPowerShell\Modules* (if it does not exists, you have to create it) or the new location under  *C:\Program Files\WindowsPowerShell\Modules*.
+For a easy start you can use the **Install-SharepointExtensionModule.ps1** script to add the current path of your cloned/unzipped package location into the PowerShell module path environment variable.
+
+* To run the report script you have to create some files with expected users, SharePoint sites etc. Run the following PowerShell Scripts inside the SharepointExtensionModule\scripts folder
+  
+  * new-GroupMembersFile.ps1
+  * new-LocalAdminsFile.ps1
+  * new-SPFarmAdminsFile.ps1
+  * new-SPSiteGroupMembersFile.ps1
+  * new-SPSiteGroupsFile.ps1
+  * new-SPSitesFile.ps1
+  
+Furthermore create a file expectedLogins.txt which lists all users (SAMAccountName) who are allowed to login at the machine.
+
+### Settings.psd1 ###
+In order to use some functions for the  report adjust some settings in the file *Settings.psd1* which is located inside the SharePointExtensionModule folder
+
+* For example, to use the email reporting function first add your email settings
+
+```powershell
+Email = @{
+            SMTPServer = "smtp.example.com"
+            SMTPPort = 25
+            MailTo = "sp@example.com"
+            MailFrom = "Sharepoint Error Reporting"
+            Encoding = "UTF8"
+            User = "user@example.com"
+            PasswordFile = ""
+        }
+```
+
+* Its possibile to add a logo to your report. You can change the Base64 string for the variable *logo* or exchange it to an URI. We recommend to use a Base64 string.
+
+
+## Usage ##
+
+### HTML reports ###
+Run the script Get-CompleteSharepointServerReport.ps1 to create and save a HTML report.
+
+TBD...
+
+
