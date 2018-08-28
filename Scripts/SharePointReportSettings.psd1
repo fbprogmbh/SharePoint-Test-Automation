@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     Author(s):        Dennis Esly
     Date:             08/22/2017
-    Last change:      08/25/2017
+    Last change:      08/22/2017
     Version:          1.0
 
 #>
@@ -38,8 +38,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 @{
     Report = @{
         reportHtmlTitle = "FB Pro GmbH - Sharepoint server report " 
-        reportSavePath = "C:\SharePoint_Reports\HTML\"
-        xmlSavePath = "C:\SharePoint_Reports\XML\"
+        reportSavePath = "C:\inetpub\wwwroot\reports\Reports\"
+        xmlSavePath = "C:\inetpub\wwwroot\reports\XML\"
     }
     Files = @{
         knownAdmins = "knownLocalAdmins.txt"

@@ -34,31 +34,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #>
 
-if( (Get-Module -List ActiveDirectory) -and !(Get-Module ActiveDirectory))
+import-Module ActiveDirectory -ErrorAction SilentlyContinue
+
+try 
 {
-    import-Module ActiveDirectory -ErrorAction SilentlyContinue
+    $path = (Get-Module -ListAvailable SharepointExtensionModule).Path
+    $path = $path.Substring(0,$path.LastIndexOf('\'))
 
-    try 
+    $path += "\data"
+
+    if (!(Test-Path -Path $path))
     {
-        $path = (Get-Module -ListAvailable SharepointExtensionModule).Path
-        $path = $path.Substring(0,$path.LastIndexOf('\'))
-
-        $path += "\data"
-
-        if (!(Test-Path -Path $path))
-        {
-            # Create folder if it not exists
-            New-Item -Path $path -ItemType Folder -Force | Out-Null
-        }
-
-        Get-LocalAdmins > "$path\knownLocalAdmins.txt"
-    }    
-    catch
-    {
-        Write-Error $_.Exception.Message
+        # Create folder if it not exists
+        New-Item -Path $path -ItemType Folder -Force | Out-Null
     }
-}
-else
+
+    Get-LocalAdmins > "$path\knownLocalAdmins.txt"
+}    
+catch
 {
-    Write-Warning "Necessary Module ActiveDirectory missing. Try cmdlet 'Add-WindowsFeature RSAT-AD-PowerShell' or use ServerManager to add feature!" 
+    Write-Error $_.Exception.Message
 }

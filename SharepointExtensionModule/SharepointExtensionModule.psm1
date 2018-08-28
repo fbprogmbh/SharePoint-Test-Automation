@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 if ((Get-Module -List ActiveDirectory) -and !(Get-Module ActiveDirectory))
 {
-    Import-Module ActiveDirectory
+    Import-Module ActiveDirectory -ErrorAction SilentlyContinue
 }
 
 #if ( -not (Get-PSSnapin *Sharepoint*) -and (Get-PSsnapin -registered Microsoft.SharePoint.PowerShell))
@@ -522,6 +522,80 @@ function Get-SPSiteGroups
     }
 }
 
+function Get-SPProductInformation
+{
+
+$patchList = @()
+$products = Get-SPProduct
+
+if($products.Count -lt 1)
+{
+    Write-Error "No SharePoint products found."
+    break
+}
+
+foreach($product in $products.PatchableUnitDisplayNames)
+{
+    $unit = $products.GetPatchableUnitInfoByDisplayName($product)
+    $i = 0
+
+    foreach($patch in $unit.Patches)
+    {
+        $obj = [PSCustomObject]@{
+            DisplayName = ''
+            IsLatest = ''
+            Patch = ''
+            Version = ''
+            SupportUrl = ''
+            MissingFrom = ''
+        }
+
+        $obj.DisplayName = $unit.DisplayName
+
+        if ($unit.LatestPatch.Version.ToString() -eq $unit.Patches[$i].Version.ToString())
+        {
+            $obj.IsLatest = "Yes"
+        }
+        else
+        {
+            $obj.IsLatest = "No"
+        }
+                        
+        if (($unit.Patches[$i].PatchName) -ne [string]::Empty)
+        {
+            if ($unit.Patches[$i].ServersMissingThis.Count -ge 1)
+            {
+                $missing = [System.String]::Join(',',$unit.Patches[$i].ServersMissingThis.ServerName)
+            }
+            else
+            {
+                $missing = ''
+            }
+
+            $obj.Patch = $unit.Patches[$i].PatchName
+            $obj.Version = $unit.Patches[$i].Version.ToString()
+            $obj.SupportUrl = $unit.Patches[$i].Link.AbsoluteUri
+            $obj.MissingFrom = $missing
+            $missing = $null
+        }
+        else
+        {
+            $obj.Patch = "N/A"
+            $obj.Version = "N/A"
+            $obj.SupportUrl = "N/A"
+            $obj.MissingFrom = "N/A"
+        }
+
+        $patchList += $obj
+        $obj = $null
+        ++$i
+    }
+}
+
+Write-Output $patchList
+
+}
+
 
 
 # Report Functions
@@ -582,16 +656,16 @@ function ConvertTo-HtmlTable
 
 function New-SharepointReportSectionHeader
 {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        $resultObjects,
+[CmdletBinding()]
+Param(
+    [Parameter(Mandatory=$true)]
+    $resultObjects,
         
-        [Parameter(Mandatory=$true)]
-        [string]$headertext,
+    [Parameter(Mandatory=$true)]
+    [string]$headertext,
 
-        [string]$anchor
-    )
+    [string]$anchor
+)
 
     $header = "<h3 id=`"$anchor`" class=`"passed`">$headertext</h3>"
     $errCounter, $warnCounter = 0, 0
@@ -602,13 +676,16 @@ function New-SharepointReportSectionHeader
         if ($obj.passed -eq "warning") { $warnCounter++ }
     } 
     
-    if ($errCounter -gt 0) 
+    if (($errCounter -gt 0) -and ($warnCounter -gt 0))
     { 
-        $header = "<h3 id=`"$anchor`" class=`"failed`">$headertext (Errors: $errCounter)</h3>" 
+        $header = "<h3 id=`"$anchor`">$headertext <div class=`"failed`"> Errors: $errCounter</div> <div class=`"warning`"> Warnings: $warnCounter</div></h3>" 
     }
-    elseif ($warnCounter -gt 0)
+    elseif (($errCounter -gt 0) -and ($warnCounter -eq 0)) {
+        $header = "<h3 id=`"$anchor`">$headertext <div class=`"failed`"> Errors: $errCounter</div></h3>"
+    }
+    elseif (($warnCounter -gt 0) -and ($errCounter -eq 0))
     {
-        $header = "<h3 id=`"$anchor`" class=`"warning`">$headertext (Warnings: $warnCounter)</h3>"
+        $header = "<h3 id=`"$anchor`">$headertext <div class=`"warning`"> Warnings: $warnCounter</div></h3>"
     }
     
     Write-Output $header   
@@ -637,11 +714,15 @@ function New-SharepointReportNavPoint
         if ($obj.passed -eq "warning") { $warnCounter++ }
     } 
     
-    if ($errCounter -gt 0) 
+    if (($errCounter -gt 0) -and ($warnCounter -gt 0))
+    { 
+        $navPoint = "<li><a href=`"#$anchor`">$navPointText <span class=`"red`">$errCounter</span> <span class=`"orange`">$warnCounter</span></a></li>" 
+    }
+    elseif (($errCounter -gt 0) -and ($warnCounter -eq 0))
     { 
         $navPoint = "<li><a href=`"#$anchor`">$navPointText <span class=`"red`">$errCounter</span></a></li>" 
     }
-    elseif ($warnCounter -gt 0)
+    elseif (($warnCounter -gt 0) -and ($errCounter -eq 0))
     {
         $navPoint = "<li><a href=`"#$anchor`">$navPointText <span class=`"orange`">$warnCounter</span></a></li>"
     }
@@ -949,6 +1030,31 @@ function Test-SoftwareInstallState
             'WCF Data Services 5.6.0 CHS Language Pack')
     )
 
+    try 
+    {
+        $installedSoftList = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* |  Select DisplayName | Select -ExpandProperty DisplayName
+        $installedSoftList += Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |  Select DisplayName | Select -ExpandProperty DisplayName | select -Unique
+        $installedSoftList = $installedSoftList | select -Unique
+    }
+    catch
+    {
+
+        $obj = New-Object PSObject
+        $obj | Add-Member NoteProperty Name("TC-SSP-0004")
+        $obj | Add-Member NoteProperty Task("Software is installed")
+        $obj | Add-Member NoteProperty Status("An error occured, see log file for info.")
+        $obj | Add-Member NoteProperty Passed("false")
+        
+        Write-Output $obj
+            
+        # log error
+        $msg = $_.Exception.toString()
+        $msg += "; " + $_.ScriptStackTrace.toString()
+        write-LogFile -Path $LogPath -name $LogName -message $msg -Level Error
+
+        break
+    }
+    
     $i = 1
 
     foreach($software in $softwareList)
@@ -959,7 +1065,7 @@ function Test-SoftwareInstallState
 
         try
         {
-            if (Get-Wmiobject Win32_Product | where name -EQ $software)
+            if ($installedSoftList -contains $software)
             {
                 $obj | Add-Member NoteProperty Status("Installed")
                 $obj | Add-Member NoteProperty Passed("true")
@@ -1409,7 +1515,7 @@ try
     foreach($dc in $allDCs)
     {
         # if $dc is not on the exception list ( with IP or name)
-        if (-not(($exceptionList.contains($dc.IPv4Address)) -or ($exceptionList.contains($dc.name))) -or ($exceptionList -ne $null) )
+        if ( -not( ($exceptionList.contains($dc.IPv4Address)) -or ($exceptionList.contains($dc.name)) -or ($exceptionList -ne $null) ))
         {
             # test connection, otherwise skip 
             $obj = New-Object PSObject
@@ -2066,7 +2172,7 @@ function Test-SPAllSiteGroupMembers
             {
                 $obj | Add-Member NoteProperty Status("An error occured")
                 $obj | Add-Member NoteProperty Passed("false")
-                Write-LogFile -Path $LogPath -name $LogName -message "An undefined error occured." -Level Error
+                Write-LogFile -Path $LogPath -name $LogName -message "An undefined error occured."
             }
 
             Write-Output $obj
@@ -2092,32 +2198,23 @@ function Test-SPWebAppHttps
     $obj | Add-Member NoteProperty Name("TC-SSP-0020")
     $obj | Add-Member NoteProperty Task("Each SharePoint web application URL begins with https")
     
-    try
+    # Get all web apps starting with https
+    $webApps = Get-SPWebApplication -includeCentralAdministration| where url -like "http://*" | select -ExpandProperty url
+
+    $nl = [System.Environment]::NewLine
+
+    # If true, we found web application not starting with https
+    if ($webApps)
     {
-        # Get all web apps starting with https
-        $webApps = Get-SPWebApplication -includeCentralAdministration| where url -like "http://*" | select -ExpandProperty url -ErrorAction Stop
-
-        $nl = [System.Environment]::NewLine
-
-        # If true, we found web application not starting with https
-        if ($webApps)
-        {
-            $obj | Add-Member NoteProperty Status("Found web application with http: $nl $webApps")
-            $obj | Add-Member NoteProperty Passed("false")
-            Write-LogFile -Path $LogPath -name $LogName -message "Found web application not starting with https: $nl $web" -Level Error
-        }
-
-        else 
-        {
-            $obj | Add-Member NoteProperty Status("All correct")
-            $obj | Add-Member NoteProperty Passed("true")
-        }
+        $obj | Add-Member NoteProperty Status("Found web application with http: $nl $webApps")
+        $obj | Add-Member NoteProperty Passed("false")
+        Write-LogFile -Path $LogPath -name $LogName -message "Found web application not starting with https: $nl $web" -Level Error
     }
-    catch
+
+    else 
     {
-        $obj | Add-Member NoteProperty Status("An error occured!")
-        $obj | Add-Member NoteProperty Passed("false")    
-        Write-LogFile -Path $LogPath -name $LogName -message $_ -Level Error
+        $obj | Add-Member NoteProperty Status("All correct")
+        $obj | Add-Member NoteProperty Passed("true")
     }
 
     Write-Output $obj

@@ -29,17 +29,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     Author(s):        Dennis Esly
     Date:             06/03/2017
-    Last change:      10/25/2017
-    Version:          0.7
+    Last change:      08/28/2018
+    Version:          1.0
+    State:            Approved
 
 #>
 
 
 
-<#  
-    Configuration
-    =================================================================
-#>
+#region Configuration
+
 try 
 {
     $Settings = Import-LocalizedData -FileName SharePointReportSettings.psd1 -ErrorAction Stop
@@ -74,14 +73,12 @@ $members_WSS_WPG = Get-Content "$modulePath\data\members_WSS_WPG.txt"
 $spFarmAdmins =  Get-Content "$modulePath\data\knownSPFarmAdmins.txt"
 $featureList = @('Net-Framework-Features','Web-Server','Web-WebServer','Web-Common-Http','Web-Static-Content','Web-Default-Doc','Web-Dir-Browsing','Web-Http-Errors','Web-App-Dev','Web-Asp-Net','Web-Net-Ext',
             'Web-ISAPI-Ext','Web-ISAPI-Filter','Web-Health','Web-Http-Logging','Web-Log-Libraries','Web-Request-Monitor','Web-Http-Tracing','Web-Security','Web-Basic-Auth','Web-Windows-Auth','Web-Filtering',
-            'Web-Digest-Auth','Web-Performance','Web-Stat-Compression','Web-Dyn-Compression','Web-Mgmt-Tools','Web-Mgmt-Console','Web-Mgmt-Compat','Web-Metabase','Application-Server','AS-Web-Support',
-            'AS-TCP-Port-Sharing','AS-WAS-Support','AS-HTTP-Activation','AS-TCP-Activation','AS-Named-Pipes','AS-Net-Framework','WAS','WAS-Process-Model','WAS-NET-Environment','WAS-Config-APIs',
+            'Web-Digest-Auth','Web-Performance','Web-Stat-Compression','Web-Dyn-Compression','Web-Mgmt-Tools','Web-Mgmt-Console','Web-Mgmt-Compat','Web-Metabase','WAS','WAS-Process-Model','WAS-NET-Environment','WAS-Config-APIs',
             'Web-Lgcy-Scripting','Windows-Identity-Foundation','Server-Media-Foundation')
 
-<#
-    Configuration for short system information in report
-    ==============================================
-#>
+#endregion
+
+#region Short system information in report
 $reportDate = Get-Date -Format g
 $currentHost = [System.Net.Dns]::GetHostByName(($env:computerName)) | select -ExpandProperty Hostname
 $osInfo = Get-OperatingSystemInfo
@@ -90,17 +87,13 @@ $freeRAM = "{0:N3}" -f ($osInfo.FreePhysicalMemory/1MB)
 $freeDiskSpace = "{0:N1}" -f ((get-WmiObject win32_logicaldisk | where DeviceID -eq "C:" | select -ExpandProperty FreeSpace)/1GB)
 $logo = $ConfigFile.Settings.Logo
 $updates = Get-FormattedUpdateInformation
-$sccmUpdates = Get-FormattedSccmUpdateInformation
+#$sccmUpdates = Get-FormattedSccmUpdateInformation
 $restart = Test-SystemRestartMayBeNescessary
 If (Get-PendingReboot) { $rebootPending = "yes" } else { $rebootPending = "no" }
+#endregion
 
-<#
-    Check and ensure necessary framework conditions
-    ===================================================================
 
-    Check conditions like existence of filepath for reports and xml files 
-    and create it if necessary.
-#>
+#region Checking folders for reports
 
 # Test if path for saving report files exists, otherwise create it
 if (!(test-path $reportSavePath))
@@ -113,12 +106,10 @@ if (!(test-path $xmlSavePath))
 {
     New-Item -Path $xmlSavePath -ItemType Directory -Force
 }
+#endregion
 
 
-<# 
-    Run testcases and save the results in a variable
-    =================================================================== 
-#>
+#region Run tests and save results in a variable
 
 Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Getting operating system status..." -PercentComplete 10
 $spOsStatus = @(
@@ -130,12 +121,12 @@ $spOsStatus = @(
 
 Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Getting SharePoint application status..." -PercentComplete 25
 $spApplicationStatus = @(
-    Test-SoftwareInstallState
+    #Test-SoftwareInstallState
     Test-SPCentralAdminReachable
     Test-SPCentralAdminReachableSSL
 )
 
-Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Getting securtiy status..." -PercentComplete 55
+Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Getting security status..." -PercentComplete 40
 $spSecurityStatus = @(        
     Test-LocalAdmins -knownAdmins $knownAdmins
     Test-LastUserLogins -acceptedUsers $expectedLogins
@@ -156,21 +147,23 @@ $spServerEnvironmentSystemsStatus = @(
     Test-DNSServerConnection
     Test-ForestDCsConnection
 )
+#endregion
 
-Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Building report..." -PercentComplete 90
-<#  
-    Save results in XML file
-    ================================================================================
-#>
 
-$allResults = $spServerEnvironmentSystemsStatus + $spOsStatus + $spApplicationStatus + $spSecurityStatus #+ $mbamInfrastructureStatus
+Write-Progress -Activity "Generating SharePoint TAP Report" -CurrentOperation "Building report..." -PercentComplete 90 
+
+#region Save results in XML file
+$allResults = $spServerEnvironmentSystemsStatus + $spOsStatus + $spApplicationStatus + $spSecurityStatus
 
 # If there are testresult objects, save them in a xml file
 if($allResults)
 {
-    $allResults | Export-Clixml $xmlSavePath"SharepointServer_Report_Objects_$fileDate.xml"
+    $allResults | Export-Clixml $xmlSavePath"SharepointServer_Reportobjects_$fileDate.xml"
 }
+#endregion
 
+
+#region Get values for Overall Report Status
 $passed, $warning, $failed = 0,0,0
 
 foreach ($result in $allResults)
@@ -179,11 +172,9 @@ foreach ($result in $allResults)
     elseif ($result.passed -eq "warning") { $warning++ }
     elseif ($result.passed -eq "false") { $failed++ }
 }
+#endregion
 
-<#  
-    Build the report
-    ====================================================================
-#>
+#region Build the report
           
 $report = "<!DOCTYPE html>
         <html>
@@ -235,7 +226,8 @@ $report = "<!DOCTYPE html>
                 <p>Report created at $reportDate on <span class=`"hostname`">$currentHost</span></p>"
 
 # Add overview status to report
-$report += "<table><tr><td>Passed: $passed</td><td>Warnings: $warning</td><td>Errors: $failed</td></tr></table>"
+$report += "<h2>Overall Report Status</h2>"
+$report += "<table style=`"width: 150px;`"><tr><td>Passed:</td><td class=`"passed`">$passed</td></tr><tr><td>Warnings:</td><td class=`"warning`">$warning</td></tr><tr><td>Errors:</td><td class=`"failed`">$failed</td></tr></table>"
 # Add a navigation to the report 
 $report += "<nav><ul>"
 #$report += New-SharepointReportNavPoint -resultObjects $spInfrastructureStatus -navPointText "Infrastructure status" -anchor "1" 
@@ -298,11 +290,7 @@ $report +=  "<table class=`"info`">
  
  try
 {      
-    
-# Get infrastructure status      
-#$report += New-SharepointReportSectionHeader -resultObjects $spInfrastructureStatus -headertext "Infrastructure status" -anchor "1"  
-#$report += $spInfrastructureStatus | ConvertTo-HtmlTable
-        
+          
 # Get operating system status      
 $report += New-SharepointReportSectionHeader -resultObjects $spOsStatus -headertext "Operating System status" -anchor "2"      
 $report += $spOsStatus | ConvertTo-HtmlTable
@@ -336,14 +324,13 @@ $report += "</body></html>"
 # Save the report 
 $report > $reportSavePath"SharepointServer_report_$fileDate.html"
 
+#endregion
 
 
-<#  
-    Send error email 
-    =================================================================================
-#>
+#region Send error email 
+
 #Send-MbamEmailOnError -resultObjects $allResults
-
+#endregion
 }
 
 # Catch any occured error and write it to log file
