@@ -10,7 +10,7 @@ The SharePoint Test Automation Package gives you the ability to get an overview 
 * Some scripts need the PowerShell Active Directory Cmdlets. Add the RSAT AD Tools with the Server Manager or run the PowerShell Cmdlet 
 
 ```powershell 
-add-windowsfeature RSAT-AD-PowerShell
+	add-windowsfeature RSAT-AD-PowerShell
 ```
 
 * Download or clone the package
@@ -24,7 +24,7 @@ add-windowsfeature RSAT-AD-PowerShell
 
   * SharePointExtensionModule
 
-A default load path could be e.g. the path in your user profile under *"userprofile"\Documents\WindowsPowerShell\Modules* (if it does not exists, you have to create it) or the new location under  *C:\Program Files\WindowsPowerShell\Modules*.
+	A default load path could be e.g. the path in your user profile under *"userprofile"\Documents\WindowsPowerShell\Modules* (if it does not exists, you have to create it) or the new location under  *C:\Program Files\WindowsPowerShell\Modules*.
 For a easy start you can use the **Install-SharepointExtensionModule.ps1** script to add the current path of your cloned/unzipped package location into the PowerShell module path environment variable.
 
 * To run the report script you have to create some files with expected users, SharePoint sites etc. Run the following PowerShell Scripts inside the SharepointExtensionModule\scripts folder
@@ -65,4 +65,12 @@ Run the script Get-CompleteSharepointServerReport.ps1 to create and save a HTML 
 
 TBD...
 
+## Sample report ##
+You can find a sample report in the [Sample](Sample) folder.
+
+## Troubleshooting ##
+
+* Tested on a SharePoint 2016 Single-Server instance. To test a Multi-Server farm you have to run the script on each Web-Frontend Server  to get a consolidate compliance status.
+
+* The user running the script must have at least read permissions for all web applications otherwise the test for site collection group members will not work. To grant read permissions, go to **SharePoint Central Administration**, click *Manage Web Application* under Application Management and select a web application. In the ribbon menue bar select *User Policy* and add the user to **All Zones** with **Full Read** permissions. Repeat for every other web application except for the *SharePoint Central Administration v4* web application.
 
