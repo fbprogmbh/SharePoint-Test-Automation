@@ -10,7 +10,7 @@ The SharePoint Test Automation Package gives you the ability to get an overview 
 * Some scripts need the PowerShell Active Directory Cmdlets. Add the RSAT AD Tools with the Server Manager or run the PowerShell Cmdlet 
 
 ```powershell 
-add-windowsfeature RSAT-AD-PowerShell
+	add-windowsfeature RSAT-AD-PowerShell
 ```
 
 * Download or clone the package
